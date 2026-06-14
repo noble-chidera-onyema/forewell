@@ -1,8 +1,8 @@
 fault,name,positive_windows,median_lead_min,avg_precision,recall_at_0.5
-6,Quick choke restriction,86,12.2,0.046,0.767
-2,DHSV spurious closure,1394,85.8,0.981,0.994
-9,Hydrate in service line,2000,103.3,0.168,0.299
-5,Rapid productivity loss,2000,153.0,0.126,0.054
-1,BSW increase,1072,163.6,0.145,0.604
-7,Choke scaling,2000,720.4,0.105,0.03
-8,Hydrate in production line,2000,2902.4,0.57,0.759
+6,Quick choke restriction,86,12.2,0.026,0.733
+2,DHSV spurious closure,1394,85.8,0.984,0.989
+9,Hydrate in service line,2000,103.3,0.216,0.138
+5,Rapid productivity loss,2000,153.0,0.163,0.139
+1,BSW increase,1072,163.6,0.08,0.044
+7,Choke scaling,2000,720.4,0.107,0.006
+8,Hydrate in production line,2000,2902.4,0.61,0.657

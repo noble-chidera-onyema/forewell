@@ -1,10 +1,11 @@
 # Turn raw one-second sensor streams into windowed feature rows.
 #
 # A single instant tells a model nothing. What carries the fault signal
-# is how each sensor behaves over a short window: its average level, its
-# trend (slope), and how much it varies. This module slides a window over
-# each well recording and summarises every sensor inside it, then labels
-# the window as developing-fault or normal.
+# is how each sensor behaves over a window: its level, its trend, how
+# much it varies, and how fast it is changing. This builder uses two
+# window lengths so that both abrupt and slow-developing faults are
+# visible, and adds a few cross-sensor features grounded in the physics
+# of the production system.
 
 from pathlib import Path
 import numpy as np
@@ -16,12 +17,13 @@ SENSOR_COLUMNS = [
     "P-JUS-CKP", "QGL", "ABER-CKP",
 ]
 
-WINDOW_SECONDS = 300   # 5-minute window
+SHORT_WINDOW = 300     # 5 minutes: catches abrupt change
+LONG_WINDOW = 1800     # 30 minutes: catches slow drift
 STEP_SECONDS = 60      # move forward 1 minute at a time
 
 
 def _slope(values: np.ndarray) -> float:
-    # Fit a straight line through the window and return its gradient.
+    # Gradient of a straight line through the window. Positive means rising.
     n = len(values)
     if n < 2:
         return 0.0
@@ -34,15 +36,18 @@ def _slope(values: np.ndarray) -> float:
     return float(np.polyfit(x[mask], values[mask], 1)[0])
 
 
+def _safe_mean(vals: np.ndarray) -> float:
+    return float(np.nanmean(vals)) if not np.all(np.isnan(vals)) else 0.0
+
+
+def _safe_std(vals: np.ndarray) -> float:
+    return float(np.nanstd(vals)) if not np.all(np.isnan(vals)) else 0.0
+
+
 def build_features_for_instance(df: pd.DataFrame, fault_label: int) -> pd.DataFrame:
-    # Given one recording, return a table of windowed features.
-    #
-    # Positive (1): window lies inside the transient warning period.
-    # Negative (0): window lies in the clearly-normal period before any
-    #               warning starts.
-    # Excluded:     windows inside the confirmed-fault stretch, and windows
-    #               that mix states, are dropped as not part of the
-    #               early-warning question.
+    # Positive (1): window inside the transient warning period.
+    # Negative (0): window in the clearly-normal period before any warning.
+    # Excluded: confirmed-fault stretches and mixed windows are dropped.
     transient_label = 100 + fault_label
 
     present_sensors = [c for c in SENSOR_COLUMNS if c in df.columns]
@@ -51,36 +56,59 @@ def build_features_for_instance(df: pd.DataFrame, fault_label: int) -> pd.DataFr
     rows = []
     n = len(df)
     start = 0
-    while start + WINDOW_SECONDS <= n:
-        end = start + WINDOW_SECONDS
-        window = df.iloc[start:end]
-        window_classes = classes[start:end]
+    while start + LONG_WINDOW <= n:
+        long_end = start + LONG_WINDOW
+        short_start = long_end - SHORT_WINDOW
 
-        in_transient = np.isin(window_classes, [transient_label])
-        in_normal = np.isin(window_classes, [0])
+        long_win = df.iloc[start:long_end]
+        short_win = df.iloc[short_start:long_end]
+        win_classes = classes[short_start:long_end]
 
+        in_transient = np.isin(win_classes, [transient_label])
+        in_normal = np.isin(win_classes, [0])
         frac_transient = in_transient.mean()
         frac_normal = in_normal.mean()
 
         if frac_transient >= 0.9:
-            label = 1            # clearly developing
+            label = 1
         elif frac_normal >= 0.9:
-            label = 0            # clearly normal
+            label = 0
         else:
             start += STEP_SECONDS
-            continue             # mixed or confirmed-fault: drop
+            continue
 
         feat = {}
         for sensor in present_sensors:
-            vals = window[sensor].to_numpy(dtype=float)
-            feat[f"{sensor}_mean"] = np.nanmean(vals) if not np.all(np.isnan(vals)) else 0.0
-            feat[f"{sensor}_std"] = np.nanstd(vals) if not np.all(np.isnan(vals)) else 0.0
-            feat[f"{sensor}_slope"] = _slope(vals)
+            short_vals = short_win[sensor].to_numpy(dtype=float)
+            long_vals = long_win[sensor].to_numpy(dtype=float)
+
+            s_mean = _safe_mean(short_vals)
+            l_mean = _safe_mean(long_vals)
+
+            # Short-window level, spread, and trend.
+            feat[f"{sensor}_mean"] = s_mean
+            feat[f"{sensor}_std"] = _safe_std(short_vals)
+            feat[f"{sensor}_slope"] = _slope(short_vals)
+
+            # Long-window trend and spread: slow drift shows up here.
+            feat[f"{sensor}_slope_long"] = _slope(long_vals)
+            feat[f"{sensor}_std_long"] = _safe_std(long_vals)
+
+            # Drift: how far the recent short-window mean has moved from
+            # the longer-term mean. A creeping fault grows this gap.
+            feat[f"{sensor}_drift"] = s_mean - l_mean
+
+        # Cross-sensor physics: pressure drop across the production choke.
+        # A developing restriction changes this difference even when each
+        # individual pressure still looks plausible.
+        if "P-MON-CKP" in present_sensors and "P-JUS-CKP" in present_sensors:
+            up = _safe_mean(short_win["P-MON-CKP"].to_numpy(dtype=float))
+            down = _safe_mean(short_win["P-JUS-CKP"].to_numpy(dtype=float))
+            feat["choke_dp"] = up - down
 
         feat["label"] = label
         feat["fault_type"] = fault_label
         rows.append(feat)
-
         start += STEP_SECONDS
 
     return pd.DataFrame(rows)
