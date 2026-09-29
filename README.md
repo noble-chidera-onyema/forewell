@@ -34,13 +34,14 @@ The reusable pipeline is in `src/forewell/`, the analysis in `notebooks/`, the w
 
 ## Run it locally
 
-it clone https://github.com/noble-chidera-onyema/forewell.git
+```bash
+git clone https://github.com/noble-chidera-onyema/forewell.git
 cd forewell
 py -3.11 -m venv .venv
-..venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 streamlit run app/streamlit_app.py
-
+```
 
 The dashboard runs on a saved model and bundled demo data, so it works without the full dataset. To rebuild the model from scratch you also need the Petrobras 3W dataset cloned alongside this repository.
 
