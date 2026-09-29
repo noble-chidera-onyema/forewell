@@ -18,6 +18,8 @@ A gradient-boosted classifier is trained on these features. It is validated with
 
 The reusable pipeline is in `src/forewell/`, the analysis in `notebooks/`, the written findings in `docs/`, and the live dashboard in `app/`.
 
+For the full method, the exact calculations, how the numbers were measured, and how it maps to a real platform, see [docs/how_it_works_in_detail.md](docs/how_it_works_in_detail.md).
+
 ## Key results
 
 - Combined hydrate detector (production-line and service-line hydrates) reaches about 0.96 average precision across 24 real wells, validated by splitting on whole wells so no well appears in both training and testing.
