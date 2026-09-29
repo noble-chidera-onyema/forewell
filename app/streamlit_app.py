@@ -11,8 +11,7 @@ import joblib
 import streamlit as st
 
 st.set_page_config(page_title="Forewell - Hydrate Early Warning",
-                   page_icon="🛢", layout="wide",
-                   initial_sidebar_state="expanded")
+                   layout="wide", initial_sidebar_state="expanded")
 
 ARTIFACT_DIR = Path(__file__).parent / "artifacts"
 
@@ -35,7 +34,8 @@ alpha = art["alpha"]
 demo = load_demo()
 
 # --- Header ---
-st.title("Forewell: hydrate early warning for offshore wells")
+st.title("Forewell: hydrate early warning for offshore wells") 
+st.caption("An applied AI portfolio project by Noble Chidera Onyema")
 st.markdown(
     "Forewell reads a well's sensor data and raises an alarm while a hydrate "
     "is still forming, during the window when an operator can still act. It "
@@ -46,8 +46,7 @@ st.markdown(
 st.info(
     "**How to use:** in the left panel, pick a well, then drag the **Time "
     "position** slider. The status banner below tracks the well second by "
-    "second, from normal operation into a forming hydrate.",
-    icon="👈",
+    "second, from normal operation into a forming hydrate."
 )
 
 # --- Sidebar controls ---
@@ -84,11 +83,11 @@ st.divider()
 
 # --- Status banner, full width ---
 if banner == "error":
-    st.error(f"# 🛑 {state}")
+    st.error(f"# {state}")
 elif banner == "success":
-    st.success(f"# ✅ {state}")
+    st.success(f"# {state}")
 else:
-    st.warning(f"# ⚠️ {state}")
+    st.warning(f"# {state}")
 
 m1, m2, m3 = st.columns(3)
 m1.metric("Detector score", f"{score:.2f}",
@@ -111,7 +110,7 @@ sensors = [s for s in ["T-TPT_min", "QGL_drift_base", "P-PDG_drift_base",
 chart_df = shown[sensors].copy()
 chart_df.index = (shown["win_end_idx"] / 3600.0).round(2)
 chart_df.index.name = "hours into recording"
-st.line_chart(chart_df, height=380, use_container_width=True)
+st.line_chart(chart_df, height=380, width="stretch")
 
 st.divider()
 
@@ -122,12 +121,24 @@ vals = row[feature_cols].astype(float)
 top = vals.reindex(vals.abs().sort_values(ascending=False).index).head(8)
 drivers = pd.DataFrame({"sensor feature": top.index,
                         "value": top.values.round(3)})
-st.dataframe(drivers, use_container_width=True, hide_index=True, height=320)
+st.dataframe(drivers, width="stretch", hide_index=True, height=320)
 
 st.divider()
-st.caption(
-    "Forewell is a research prototype built on the public Petrobras 3W "
-    "dataset (CC BY 4.0). It shows early-warning detection, calibrated "
-    "confidence, and explainable alarms on real offshore well data. It is "
-    "not a certified operational system."
-)
+st.divider()
+left, right = st.columns([3, 1])
+with left:
+    st.caption(
+        "Forewell is an independent portfolio project by **Noble Chidera "
+        "Onyema**, MSc Applied Artificial Intelligence and User Experience, "
+        "Abertay University. It shows early-warning detection, calibrated "
+        "confidence, and explainable alarms on real offshore well data."
+    )
+    st.caption(
+        "Built on the public Petrobras 3W dataset (CC BY 4.0). Research "
+        "prototype, not a certified operational system. "
+        "Source: github.com/noble-chidera-onyema/forewell"
+    )
+with right:
+    st.caption(
+        "© 2026 Noble Chidera Onyema.\n\nAll Rights Reserved."
+    )
